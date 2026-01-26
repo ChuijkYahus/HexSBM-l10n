@@ -23,25 +23,39 @@ import org.lwjgl.glfw.GLFW;
 import java.util.*;
 
 public class SpellBookScreen extends Screen {
+    // === Constants ===
     private static final Identifier SPELLBOOK_ID = new Identifier("hexcasting", "spellbook");
     private static final int GROUPS = 8, GROUP_SIZE = 8, TOTAL_PAGES = 64;
-    private static final int PANEL_WIDTH = 220;
-    private static final int PARTIAL_PANEL_WIDTH = 30;
 
-    private int lastUiColor = 0;
-    private boolean lastUsePigment = false;
-    private int pigmentColor = 0xFFFFFFFF;
-    private Hand activeHand = null;
-    private int centralGroup = 0, originalPageIdx = -1;
+    // === Core Components ===
     private HexSBMConfig liveConfig;
     private ColorScheme colorScheme;
     private ConfigPanel configPanel;
 
-    // === Конфиг-панель ===
-    private boolean configPanelFullyOpen = false;
+    // === Screen State ===
+    private Hand activeHand = null;
+    private int centralGroup = 0;
+    private int originalPageIdx = -1;
+
+    // === Hover/Selection State ===
+    private enum SectorType { GROUP, PAGE }
+    private record HoveredSector(SectorType type, int index) {}
+    private HoveredSector currentlyHoveredSector = null;
+
+    // === UI State & Cache ===
+    private int pigmentColor = 0xFFFFFFFF;
+    private int lastUiColor = 0;
+    private boolean lastUsePigment = false;
+    private HexSBMConfig.HighlightPages lastHighlightMode = null;
+
+    // === Config Panel UI State ===
+    private static final int PANEL_WIDTH = 220;
+    private static final int PARTIAL_PANEL_WIDTH = 30;
     private static final int HOVER_ZONE_WIDTH = 40;
+    private boolean configPanelFullyOpen = false;
     private boolean configPanelHovering = false;
     private boolean configInteractionStarted = false;
+
 
     public SpellBookScreen() {
         super(Text.empty());
@@ -70,7 +84,8 @@ public class SpellBookScreen extends Screen {
             pigmentColor = liveConfig.uiBaseColor;
         }
 
-        this.colorScheme = new ColorScheme(pigmentColor, liveConfig);
+        this.colorScheme = new ColorScheme(pigmentColor, liveConfig, liveConfig.highlightPages);
+        this.lastHighlightMode = liveConfig.highlightPages;
 
         ItemStack main = p.getMainHandStack(), off = p.getOffHandStack();
         if (!main.isEmpty() && Registries.ITEM.getId(main.getItem()).equals(SPELLBOOK_ID)) {
@@ -113,6 +128,7 @@ public class SpellBookScreen extends Screen {
             return;
         }
 
+        currentlyHoveredSector = null;
         configPanelHovering = (mx >= width - HOVER_ZONE_WIDTH);
 
         ItemStack book = getCurrentBook();
@@ -133,10 +149,11 @@ public class SpellBookScreen extends Screen {
         }
 
         int currentColor = liveConfig.usePigmentColor ? this.pigmentColor : liveConfig.uiBaseColor;
-        if (currentColor != lastUiColor || liveConfig.usePigmentColor != lastUsePigment) {
+        if (currentColor != lastUiColor || liveConfig.usePigmentColor != lastUsePigment || liveConfig.highlightPages != lastHighlightMode) {
             this.lastUiColor = currentColor;
             this.lastUsePigment = liveConfig.usePigmentColor;
-            this.colorScheme = new ColorScheme(currentColor, liveConfig);
+            this.lastHighlightMode = liveConfig.highlightPages;
+            this.colorScheme = new ColorScheme(currentColor, liveConfig, liveConfig.highlightPages);
         }
 
         for (int i = 0; i < GROUPS; i++) {
@@ -146,11 +163,16 @@ public class SpellBookScreen extends Screen {
             boolean cur = page == currentPage;
             boolean hover = RadialRenderer.isPointInSegment(mx, my, cx, cy,
                 liveConfig.outerRingInnerRadius, liveConfig.outerRingOuterRadius, ang.start, ang.end);
+            boolean pageHasSpell = SpellbookNbtManager.doesPageContainSpell(book, page);
+
+            if (hover) {
+                currentlyHoveredSector = new HoveredSector(SectorType.PAGE, page);
+            }
 
             RadialRenderer.fillSegment(ctx, cx, cy, liveConfig.outerRingInnerRadius, liveConfig.outerRingOuterRadius,
                 ang.start, ang.end,
-                colorScheme.getOuterInnerColor(cur, hover),
-                colorScheme.getOuterOuterColor(cur, hover),
+                colorScheme.getOuterInnerColor(cur, hover, pageHasSpell),
+                colorScheme.getOuterOuterColor(cur, hover, pageHasSpell),
                 liveConfig.segmentResolution);
 
             int r = Math.max(0, (liveConfig.outerRingInnerRadius + liveConfig.outerRingOuterRadius) / 2 + liveConfig.outerIconRadiusOffset);
@@ -170,11 +192,16 @@ public class SpellBookScreen extends Screen {
             boolean cur = i == centralGroup;
             boolean hover = RadialRenderer.isPointInSegment(mx, my, cx, cy,
                 liveConfig.innerRingInnerRadius, liveConfig.innerRingOuterRadius, ang.start, ang.end);
+            boolean groupHasSpell = SpellbookNbtManager.doesGroupContainSpell(book, i);
+
+            if (hover) {
+                currentlyHoveredSector = new HoveredSector(SectorType.GROUP, i);
+            }
 
             RadialRenderer.fillSegment(ctx, cx, cy, liveConfig.innerRingInnerRadius, liveConfig.innerRingOuterRadius,
                 ang.start, ang.end,
-                colorScheme.getInnerInnerColor(cur, hover),
-                colorScheme.getInnerOuterColor(cur, hover),
+                colorScheme.getInnerInnerColor(cur, hover, groupHasSpell),
+                colorScheme.getInnerOuterColor(cur, hover, groupHasSpell),
                 liveConfig.segmentResolution);
 
             int r = Math.max(0, (liveConfig.innerRingInnerRadius + liveConfig.innerRingOuterRadius) / 2 + liveConfig.innerIconRadiusOffset);
@@ -321,8 +348,11 @@ public class SpellBookScreen extends Screen {
         }
 
         if (KeyBindManager.SPELLBOOK_KEYBIND.matchesKey(keyCode, scanCode)) {
-            if (liveConfig.getMenuOpenMode() == 0) {
-                close();
+            if (liveConfig.getMenuOpenMode() == 0) { // Режим "Hold"
+                if (currentlyHoveredSector != null && currentlyHoveredSector.type() == SectorType.PAGE) {
+                    com.hexsbm.HexSBMClient.sendChangeSpellbookPage(activeHand, currentlyHoveredSector.index());
+                }
+                close(); // Закрываем меню в любом случае, если это не конфиг-панель
                 return true;
             }
         }

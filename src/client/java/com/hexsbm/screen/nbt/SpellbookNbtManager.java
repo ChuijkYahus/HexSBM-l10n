@@ -12,7 +12,7 @@ import java.util.*;
 
 public final class SpellbookNbtManager {
 
-    private SpellbookNbtManager() {} // Приватный конструктор для служебного класса.
+    private SpellbookNbtManager() {}
 
     public static int getPage(ItemStack book) {
         NbtCompound nbt = book.getNbt();
@@ -100,5 +100,27 @@ public final class SpellbookNbtManager {
         return tt.size() >= config.minTooltipLinesForPattern
             ? List.of(tt.get(config.patternTooltipLineIndex))
             : Collections.emptyList();
+    }
+
+    public static boolean doesPageContainSpell(ItemStack book, int pageNumber) {
+        NbtCompound nbt = book.getNbt();
+        if (nbt == null || !nbt.contains("pages", NbtElement.COMPOUND_TYPE)) return false;
+        NbtCompound pages = nbt.getCompound("pages");
+        if (pages.contains(String.valueOf(pageNumber), NbtElement.COMPOUND_TYPE)) {
+            return !pages.getCompound(String.valueOf(pageNumber)).isEmpty();
+        }
+        return false;
+    }
+
+    public static boolean doesGroupContainSpell(ItemStack book, int groupIndex) {
+        int startPage = groupIndex * 8 + 1;
+        int endPage = startPage + 8 - 1;
+
+        for (int i = startPage; i <= endPage; i++) {
+            if (doesPageContainSpell(book, i)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

@@ -11,12 +11,15 @@ import net.minecraft.util.math.MathHelper;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Arrays;
+import java.util.stream.Collectors;
 
 public class ConfigPanel {
     private final List<ConfigControl> controls;
     private final HexSBMConfig config;
     private int scrollY = 0;
-    private static final int CONTENT_HEIGHT = 860;
+    private int contentHeight = 0;
+    private static final int SPACING = 10;
 
     private record RingControlSet(Text radius1Label, java.util.function.IntSupplier radius1Getter, java.util.function.IntConsumer radius1Setter,
                                   Text radius2Label, java.util.function.IntSupplier radius2Getter, java.util.function.IntConsumer radius2Setter,
@@ -31,28 +34,26 @@ public class ConfigPanel {
         this.config = config;
         this.controls = new ArrayList<>();
 
-        int y = 20;
-
         // === Сброс (Верх) ===
-        y = addResetSection(y);
-        controls.add(new DividerControl(y, 10)); y += 10;
+        addResetSection();
+        controls.add(new DividerControl(10));
 
         // === Поведение ===
-        controls.add(new LabelControl(Text.translatable("hexsbm.ui.behavior"), y, 0xAAAAAA)); y += 20;
-        controls.add(new CheckBoxField(10, y, Text.translatable("hexsbm.ui.tooltips"), config::isEnableTooltips, config::setEnableTooltips)); y += 20;
-        controls.add(new CheckBoxField(10, y, Text.translatable("hexsbm.ui.close_on_miss_click"), config::isCloseOnBackgroundClick, config::setCloseOnBackgroundClick)); y += 20;
-        controls.add(new CycleField(10, y, Text.translatable("hexsbm.ui.open_menu"), List.of(Text.translatable("hexsbm.ui.hold"), Text.translatable("hexsbm.ui.press")), config::getMenuOpenMode, config::setMenuOpenMode)); y += 30;
-        controls.add(new DividerControl(y, 10)); y += 10; // Divider
+        controls.add(new LabelControl(Text.translatable("hexsbm.ui.behavior"), 0xAAAAAA));
+        controls.add(new CheckBoxField(10, Text.translatable("hexsbm.ui.tooltips"), config::isEnableTooltips, config::setEnableTooltips));
+        controls.add(new CheckBoxField(10, Text.translatable("hexsbm.ui.close_on_miss_click"), config::isCloseOnBackgroundClick, config::setCloseOnBackgroundClick));
+        controls.add(new CycleField(10, Text.translatable("hexsbm.ui.open_menu"), List.of(Text.translatable("hexsbm.ui.hold"), Text.translatable("hexsbm.ui.press")), config::getMenuOpenMode, config::setMenuOpenMode));
+        controls.add(new DividerControl(10));
 
         // === Кольца ===
-        y = addRingControls(y, Text.translatable("hexsbm.ui.spell_ring"),
+        addRingControls(Text.translatable("hexsbm.ui.spell_ring"),
                 new RingControlSet(
                         Text.translatable("hexsbm.ui.outer_radius"), config::getOuterRingOuterRadius, config::setOuterRingOuterRadius,
                         Text.translatable("hexsbm.ui.inner_radius"), config::getOuterRingInnerRadius, config::setOuterRingInnerRadius,
                         config::getOuterIconRadiusOffset, v -> config.setOuterIconRadiusOffset(v)
                 ));
 
-        y = addRingControls(y, Text.translatable("hexsbm.ui.group_ring"),
+        addRingControls(Text.translatable("hexsbm.ui.group_ring"),
                 new RingControlSet(
                         Text.translatable("hexsbm.ui.inner_radius"), config::getInnerRingInnerRadius, config::setInnerRingInnerRadius,
                         Text.translatable("hexsbm.ui.outer_radius"), config::getInnerRingOuterRadius, config::setInnerRingOuterRadius,
@@ -60,68 +61,145 @@ public class ConfigPanel {
                 ));
 
         // === Цвет ===
-        controls.add(new LabelControl(Text.translatable("hexsbm.ui.color"), y, 0xAAAAAA)); y += 20;
-        controls.add(new CheckBoxField(10, y, Text.translatable("hexsbm.ui.auto_color"), config::isUsePigmentColor, config::setUsePigmentColor)); y += 20;
+        controls.add(new LabelControl(Text.translatable("hexsbm.ui.color"), 0xAAAAAA));
+        controls.add(new CheckBoxField(10, Text.translatable("hexsbm.ui.auto_color"), config::isUsePigmentColor, config::setUsePigmentColor));
 
-        controls.add(new NumberField(100, y, Text.translatable("hexsbm.ui.a"), () -> (config.uiBaseColor >> 24) & 0xFF, v -> config.uiBaseColor = ((v & 0xFF) << 24) | (config.uiBaseColor & 0x00FFFFFF), false, true)); y += 20;
-        controls.add(new NumberField(100, y, Text.translatable("hexsbm.ui.r"), () -> (config.uiBaseColor >> 16) & 0xFF, v -> config.uiBaseColor = (config.uiBaseColor & 0xFF00FFFF) | ((v & 0xFF) << 16), false, true)); y += 20;
-        controls.add(new NumberField(100, y, Text.translatable("hexsbm.ui.g"), () -> (config.uiBaseColor >> 8) & 0xFF, v -> config.uiBaseColor = (config.uiBaseColor & 0xFFFF00FF) | ((v & 0xFF) << 8), false, true)); y += 20;
-        controls.add(new NumberField(100, y, Text.translatable("hexsbm.ui.b"), () -> config.uiBaseColor & 0xFF, v -> config.uiBaseColor = (config.uiBaseColor & 0xFFFFFF00) | (v & 0xFF), false, true)); y += 20;
+        var rField = new NumberField(100, Text.translatable("hexsbm.ui.r"), () -> (config.uiBaseColor >> 16) & 0xFF, v -> config.uiBaseColor = (config.uiBaseColor & 0xFF00FFFF) | ((v & 0xFF) << 16), false, true);
+        rField.setVisibilityCondition(() -> !config.isUsePigmentColor());
+        controls.add(rField);
 
-        controls.add(new CycleField(10, y, Text.translatable("hexsbm.ui.mode"), List.of(Text.translatable("hexsbm.ui.by_spell"), Text.translatable("hexsbm.ui.always"), Text.translatable("hexsbm.ui.never")), config::getColorMode, config::setColorMode)); y += 20;
-        controls.add(new CheckBoxField(10, y, Text.translatable("hexsbm.ui.gradient"), () -> !config.isDisableGradient(), val -> config.setDisableGradient(!val))); y += 20;
-        controls.add(new DividerControl(y, 10)); y += 10;
+        var gField = new NumberField(100, Text.translatable("hexsbm.ui.g"), () -> (config.uiBaseColor >> 8) & 0xFF, v -> config.uiBaseColor = (config.uiBaseColor & 0xFFFF00FF) | ((v & 0xFF) << 8), false, true);
+        gField.setVisibilityCondition(() -> !config.isUsePigmentColor());
+        controls.add(gField);
 
+        var bField = new NumberField(100, Text.translatable("hexsbm.ui.b"), () -> config.uiBaseColor & 0xFF, v -> config.uiBaseColor = (config.uiBaseColor & 0xFFFFFF00) | (v & 0xFF), false, true);
+        bField.setVisibilityCondition(() -> !config.isUsePigmentColor());
+        controls.add(bField);
+        
+        controls.add(new DividerControl(10));
+
+        // === Режим подсветки страниц ===
+        List<Text> highlightPageOptions = Arrays.stream(HexSBMConfig.HighlightPages.values())
+                .map(mode -> Text.translatable("hexsbm.ui.highlight_pages." + mode.name().toLowerCase()))
+                .collect(Collectors.toList());
+        controls.add(new CycleField(10, Text.translatable("hexsbm.ui.highlight_pages"), highlightPageOptions,
+                () -> config.getHighlightPages().ordinal(),
+                v -> config.setHighlightPages(HexSBMConfig.HighlightPages.values()[v])));
+
+        // === Цвет пустых секторов ===
+        var emptySectorLabel = new LabelControl(Text.translatable("hexsbm.ui.empty_sector_color"), 0xAAAAAA);
+        emptySectorLabel.setVisibilityCondition(() -> config.getHighlightPages() == HexSBMConfig.HighlightPages.WITH_SPELL);
+        controls.add(emptySectorLabel);
+
+        var emptyAutoColorCheckbox = new CheckBoxField(10, Text.translatable("hexsbm.ui.auto_color"), config::isUsePigmentForEmptySector, config::setUsePigmentForEmptySector);
+        emptyAutoColorCheckbox.setVisibilityCondition(() -> config.getHighlightPages() == HexSBMConfig.HighlightPages.WITH_SPELL);
+        controls.add(emptyAutoColorCheckbox);
+
+        var emptyRField = new NumberField(100, Text.translatable("hexsbm.ui.r"), config::getEmptySectorColorR, config::setEmptySectorColorR, false, true);
+        emptyRField.setVisibilityCondition(() -> config.getHighlightPages() == HexSBMConfig.HighlightPages.WITH_SPELL && !config.isUsePigmentForEmptySector());
+        controls.add(emptyRField);
+
+        var emptyGField = new NumberField(100, Text.translatable("hexsbm.ui.g"), config::getEmptySectorColorG, config::setEmptySectorColorG, false, true);
+        emptyGField.setVisibilityCondition(() -> config.getHighlightPages() == HexSBMConfig.HighlightPages.WITH_SPELL && !config.isUsePigmentForEmptySector());
+        controls.add(emptyGField);
+
+        var emptyBField = new NumberField(100, Text.translatable("hexsbm.ui.b"), config::getEmptySectorColorB, config::setEmptySectorColorB, false, true);
+        emptyBField.setVisibilityCondition(() -> config.getHighlightPages() == HexSBMConfig.HighlightPages.WITH_SPELL && !config.isUsePigmentForEmptySector());
+        controls.add(emptyBField);
+
+        var emptyColorDivider = new DividerControl(10);
+        controls.add(emptyColorDivider);
+        
         // === Градиенты ===
-        y = addGradientControls(y, Text.translatable("hexsbm.ui.gradient_outer"),
+        var gradientToggle = new CheckBoxField(10, Text.translatable("hexsbm.ui.gradient"), () -> !config.isDisableGradient(), val -> config.setDisableGradient(!val));
+        controls.add(gradientToggle);
+        
+        addGradientControls(Text.translatable("hexsbm.ui.gradient_outer"),
                 new GradientControlSet(
                         () -> (int)(config.outerActiveLighten * 100), v -> config.outerActiveLighten = v / 100f,
                         () -> (int)(config.outerHoverLighten * 100), v -> config.outerHoverLighten = v / 100f,
                         () -> (int)(config.outerInactiveLighten * 100), v -> config.outerInactiveLighten = v / 100f,
                         () -> (int)(config.outerInactiveDarken * 100), v -> config.outerInactiveDarken = v / 100f
-                ));
+                ), () -> !config.isDisableGradient());
 
-        y = addGradientControls(y, Text.translatable("hexsbm.ui.gradient_inner"),
+        addGradientControls(Text.translatable("hexsbm.ui.gradient_inner"),
                 new GradientControlSet(
                         () -> (int)(config.innerActiveLighten * 100), v -> config.innerActiveLighten = v / 100f,
                         () -> (int)(config.innerHoverLighten * 100), v -> config.innerHoverLighten = v / 100f,
                         () -> (int)(config.innerInactiveLighten * 100), v -> config.innerInactiveLighten = v / 100f,
                         () -> (int)(config.innerInactiveDarken * 100), v -> config.innerInactiveDarken = v / 100f
-                ));
+                ), () -> !config.isDisableGradient());
         
+        controls.add(new DividerControl(10));
+
         // === Сброс (Низ) ===
-        y = addResetSection(y);
+        addResetSection();
+    }
+    
+    private void updateLayout() {
+        int currentY = 20;
+        for (var control : controls) {
+            control.updateVisibility();
+            if (control.visible) {
+                control.setY(currentY);
+                int height = control.getHeight();
+                currentY += height;
+                if (height > 0) {
+                    currentY += SPACING;
+                }
+            }
+        }
+        this.contentHeight = currentY;
     }
 
-    private int addRingControls(int y, Text title, RingControlSet rcs) {
-        controls.add(new LabelControl(title, y, 0xAAAAAA)); y += 20;
-        controls.add(new NumberField(100, y, rcs.radius1Label(), rcs.radius1Getter(), rcs.radius1Setter(), false)); y += 20;
-        controls.add(new NumberField(100, y, rcs.radius2Label(), rcs.radius2Getter(), rcs.radius2Setter(), false)); y += 20;
-        controls.add(new NumberField(100, y, Text.translatable("hexsbm.ui.icon_offset"), rcs.iconOffsetGetter(), rcs.iconOffsetSetter(), true)); y += 30;
-        controls.add(new DividerControl(y, 10)); y += 10;
-        return y;
+    private void addRingControls(Text title, RingControlSet rcs) {
+        controls.add(new LabelControl(title, 0xAAAAAA));
+        controls.add(new NumberField(100, rcs.radius1Label(), rcs.radius1Getter(), rcs.radius1Setter(), false));
+        controls.add(new NumberField(100, rcs.radius2Label(), rcs.radius2Getter(), rcs.radius2Setter(), false));
+        controls.add(new NumberField(100, Text.translatable("hexsbm.ui.icon_offset"), rcs.iconOffsetGetter(), rcs.iconOffsetSetter(), true));
+        controls.add(new DividerControl(10));
     }
 
-    private int addGradientControls(int y, Text title, GradientControlSet gcs) {
-        controls.add(new LabelControl(title, y, 0xAAAAAA)); y += 20;
-        controls.add(new NumberField(100, y, Text.translatable("hexsbm.ui.gradient_active_lighten"), gcs.activeLightenGetter(), gcs.activeLightenSetter(), false)); y += 20;
-        controls.add(new NumberField(100, y, Text.translatable("hexsbm.ui.gradient_hover_lighten"), gcs.hoverLightenGetter(), gcs.hoverLightenSetter(), false)); y += 20;
-        controls.add(new NumberField(100, y, Text.translatable("hexsbm.ui.gradient_inactive_lighten"), gcs.inactiveLightenGetter(), gcs.inactiveLightenSetter(), false)); y += 20;
-        controls.add(new NumberField(100, y, Text.translatable("hexsbm.ui.gradient_inactive_darken"), gcs.inactiveDarkenGetter(), gcs.inactiveDarkenSetter(), false)); y += 30;
-        controls.add(new DividerControl(y, 10)); y += 10;
-        return y;
+    private void addGradientControls(Text title, GradientControlSet gcs, java.util.function.BooleanSupplier visibility) {
+        var label = new LabelControl(title, 0xAAAAAA);
+        label.setVisibilityCondition(visibility);
+        controls.add(label);
+
+        var active = new NumberField(100, Text.translatable("hexsbm.ui.gradient_active_lighten"), gcs.activeLightenGetter(), gcs.activeLightenSetter(), false);
+        active.setVisibilityCondition(visibility);
+        controls.add(active);
+
+        var hover = new NumberField(100, Text.translatable("hexsbm.ui.gradient_hover_lighten"), gcs.hoverLightenGetter(), gcs.hoverLightenSetter(), false);
+        hover.setVisibilityCondition(visibility);
+        controls.add(hover);
+
+        var inactiveLighten = new NumberField(100, Text.translatable("hexsbm.ui.gradient_inactive_lighten"), gcs.inactiveLightenGetter(), gcs.inactiveLightenSetter(), false);
+        inactiveLighten.setVisibilityCondition(visibility);
+        controls.add(inactiveLighten);
+        
+        var inactiveDarken = new NumberField(100, Text.translatable("hexsbm.ui.gradient_inactive_darken"), gcs.inactiveDarkenGetter(), gcs.inactiveDarkenSetter(), false);
+        inactiveDarken.setVisibilityCondition(visibility);
+        controls.add(inactiveDarken);
     }
 
-    private int addResetSection(int y) {
-        controls.add(new LabelControl(Text.translatable("hexsbm.ui.reset"), y, 0xAAAAAA)); y += 20;
-        controls.add(new Button(15, y, Text.translatable("hexsbm.ui.save"), 0xFFFFFF, this::saveConfig));
-        controls.add(new Button(115, y, Text.translatable("hexsbm.ui.reset_changes"), 0xFFFFFF, this::resetChanges)); y += 20;
-        controls.add(new Button(115, y, Text.translatable("hexsbm.ui.reset_all"), 0xFFFF0000, this::resetToDefaults)); y += 20;
-        return y;
+    private void addResetSection() {
+        controls.add(new LabelControl(Text.translatable("hexsbm.ui.reset"), 0xAAAAAA));
+        controls.add(new RowControl(List.of(
+            new Button(15, Text.translatable("hexsbm.ui.save"), 0xFFFFFF, this::saveConfig),
+            new Button(115, Text.translatable("hexsbm.ui.reset_changes"), 0xFFFFFF, this::resetChanges)
+        )));
+        controls.add(new Button(115, Text.translatable("hexsbm.ui.reset_all"), 0xFFFF0000, this::resetToDefaults));
     }
 
     public void render(DrawContext ctx, int px, TextRenderer textRenderer, int mx, int my) {
+        updateLayout();
+        
         int panelHeight = ctx.getScaledWindowHeight();
+        int maxScroll = Math.max(0, this.contentHeight - panelHeight + 20);
+        if (scrollY > maxScroll) {
+            scrollY = maxScroll;
+        }
+
         ctx.fill(px, 0, px + 220, panelHeight, 0xCC000000);
         ctx.fill(px, 0, px + 220, 1, 0xFFFFFFFF);
         ctx.fill(px, 0, px + 1, panelHeight, 0xFFFFFFFF);
@@ -165,8 +243,8 @@ public class ConfigPanel {
 
     public boolean keyPressed(int keyCode, int scanCode, int mods) {
         for (var control : controls) {
-            if (control.isEditing() && control instanceof NumberField field) {
-                if (field.keyPressed(keyCode, scanCode)) {
+            if (control.isEditing()) {
+                 if (control.keyPressed(keyCode, scanCode)) {
                     return true;
                 }
             }
@@ -185,7 +263,7 @@ public class ConfigPanel {
             }
         }
 
-        int maxScroll = Math.max(0, CONTENT_HEIGHT - windowHeight);
+        int maxScroll = Math.max(0, this.contentHeight - windowHeight + 20);
         scrollY = MathHelper.clamp(scrollY - (int)(amount * 10), 0, maxScroll);
         return true;
     }

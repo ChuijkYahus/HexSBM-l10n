@@ -8,8 +8,7 @@ import org.lwjgl.glfw.GLFW;
 
 import com.hexsbm.config.HexSBMConfig;
 
-public class NumberField implements ConfigControl {
-    public final int x, y;
+public class NumberField extends ConfigControl {
     public final Text label;
     public final boolean isOffset;
     public final boolean isColor;
@@ -36,9 +35,8 @@ public class NumberField implements ConfigControl {
     private static final int LINE_WIDTH = 1;
     private static final int WHITE_COLOR = 0xFFFFFF;
 
-    public NumberField(int x, int y, Text label, java.util.function.IntSupplier getter, java.util.function.IntConsumer setter, boolean isOffset, boolean isColor) {
-        this.x = x;
-        this.y = y;
+    public NumberField(int x, Text label, java.util.function.IntSupplier getter, java.util.function.IntConsumer setter, boolean isOffset, boolean isColor) {
+        super(x, FIELD_HEIGHT);
         this.label = label;
         this.getter = getter;
         this.setter = setter;
@@ -46,22 +44,23 @@ public class NumberField implements ConfigControl {
         this.isColor = isColor;
     }
 
-    public NumberField(int x, int y, Text label, java.util.function.IntSupplier getter, java.util.function.IntConsumer setter, boolean isOffset) {
-        this(x, y, label, getter, setter, isOffset, false);
+    public NumberField(int x, Text label, java.util.function.IntSupplier getter, java.util.function.IntConsumer setter, boolean isOffset) {
+        this(x, label, getter, setter, isOffset, false);
     }
 
-    public NumberField(int x, int y, String label, java.util.function.IntSupplier getter, java.util.function.IntConsumer setter, boolean isOffset, boolean isColor) {
-        this(x, y, Text.literal(label), getter, setter, isOffset, isColor);
+    public NumberField(int x, String label, java.util.function.IntSupplier getter, java.util.function.IntConsumer setter, boolean isOffset, boolean isColor) {
+        this(x, Text.literal(label), getter, setter, isOffset, isColor);
     }
 
-    public NumberField(int x, int y, String label, java.util.function.IntSupplier getter, java.util.function.IntConsumer setter, boolean isOffset) {
-        this(x, y, Text.literal(label), getter, setter, isOffset, false);
+    public NumberField(int x, String label, java.util.function.IntSupplier getter, java.util.function.IntConsumer setter, boolean isOffset) {
+        this(x, Text.literal(label), getter, setter, isOffset, false);
     }
 
     @Override
     public void render(DrawContext ctx, TextRenderer textRenderer, int mx, int my, int panelX, int scrollY) {
-        int yScreen = y - scrollY;
-        int sx = panelX + x;
+        if (!visible) return;
+        int yScreen = this.y - scrollY;
+        int sx = panelX + this.x;
         boolean hovered = mx >= sx && mx < sx + WIDTH && my >= yScreen && my < yScreen + FIELD_HEIGHT;
 
         int currentBackgroundColor = hovered ? HOVER_BACKGROUND_COLOR : BACKGROUND_COLOR;
@@ -78,7 +77,7 @@ public class NumberField implements ConfigControl {
         }
 
         String display = editing ? buffer.toString() : String.valueOf(getter.getAsInt());
-        int availableWidth = WIDTH - TEXT_HORIZONTAL_MARGIN; // 3px padding on each side
+        int availableWidth = WIDTH - TEXT_HORIZONTAL_MARGIN;
 
         String truncatedDisplay;
         if (editing) {
@@ -107,8 +106,9 @@ public class NumberField implements ConfigControl {
 
     @Override
     public boolean mouseClicked(int mx, int my, int panelX, TextRenderer textRenderer, int scrollY) {
-        int yScreen = y - scrollY;
-        int sx = panelX + x;
+        if (!visible) return false;
+        int yScreen = this.y - scrollY;
+        int sx = panelX + this.x;
         if (mx >= sx && mx < sx + WIDTH && my >= yScreen && my < yScreen + 16) {
             editing = true;
             buffer.setLength(0);
@@ -144,7 +144,6 @@ public class NumberField implements ConfigControl {
 
     @Override
     public boolean mouseScrolled(int mx, int my, double amount, int panelX) {
-        // Метод вызывается только когда поле под мышкой
         int step = amount > 0 ? 1 : -1;
         int newValue = getter.getAsInt() + step;
 
@@ -178,6 +177,7 @@ public class NumberField implements ConfigControl {
     }
 
     public boolean isMouseOver(int mx, int my, int panelX, int scrollY) {
+        if (!visible) return false;
         int yScreen = this.y - scrollY;
         int sx = panelX + x;
         return mx >= sx && mx < sx + WIDTH && my >= yScreen && my < yScreen + FIELD_HEIGHT;

@@ -6,7 +6,7 @@ import java.util.Arrays;
 import java.util.List;
 
 public class HexSBMConfig {
-    // === Позиция и размеры ===
+    // === Position & Size ===
     public float centerX = 0.5f;
     public float centerY = 0.5f;
     public int innerRingInnerRadius = 30;
@@ -16,35 +16,35 @@ public class HexSBMConfig {
     public int innerIconRadiusOffset = 0;
     public int outerIconRadiusOffset = 0;
 
-    // === Прозрачность ===
+    // === Transparency ===
     public int activeAlpha = 0x99;
     public int hoverAlpha = 0x90;
     public int inactiveAlpha = 0x80;
 
-    // === Поведение ===
+    // === Behavior ===
     public boolean enableTooltips = true;
     public boolean closeOnBackgroundClick = true;
 
-    // === Цвет: Внешнее кольцо ===
+    // === Color: Outer Ring ===
     public float outerActiveLighten = 0.15f;
     public float outerHoverLighten = 0.25f;
     public float outerInactiveLighten = 0.10f;
     public float outerInactiveDarken = 0.10f;
 
-    // === Цвет: Внутреннее кольцо ===
+    // === Color: Inner Ring ===
     public float innerActiveLighten = 0.15f;
     public float innerHoverLighten = 0.25f;
     public float innerInactiveLighten = 0.10f;
     public float innerInactiveDarken = 0.10f;
 
-    // === Рендер кольца ===
+    // === Ring Rendering ===
     public int segmentResolution = 16;
 
     // === Tooltip ===
     public int patternTooltipLineIndex = 2;
     public int minTooltipLinesForPattern = 3;
 
-    // === NBT-теги ===
+    // === NBT Tags ===
     public List<String> visualNbtTags = Arrays.asList(
         "hexcasting:pattern_data",
         "hexcasting:amulet_state",
@@ -59,29 +59,42 @@ public class HexSBMConfig {
         "op_id"
     );
 
-    // === Системные ограничения ===
+    // === System Limits ===
     public static final int MAX_RADIUS = 999;
     public static final int MAX_OFFSET = 200;
 
-    // === Цвет интерфейса ===
+    // === UI Color ===
     public boolean usePigmentColor = true;
     public int uiBaseColor = 0xFFFFFFFF;
 
-    // === Режим цвета ===
+    // === Color Mode ===
     public static final int COLOR_MODE_BY_SPELL = 0;
     public static final int COLOR_MODE_ALWAYS = 1;
     public static final int COLOR_MODE_NEVER = 2;
     public int colorMode = COLOR_MODE_ALWAYS;
 
-    // === Отключение градиента ===
+    // === Gradient ===
     public boolean disableGradient = false;
 
-    // === Режим открытия МЕНЮ (не конфига!) ===
+    // === Menu Open Mode ===
     public static final int MENU_OPEN_MODE_HOLD = 0;
     public static final int MENU_OPEN_MODE_CLICK = 1;
     public int menuOpenMode = MENU_OPEN_MODE_HOLD;
 
-    // =============== ГЕТТЕРЫ ===============
+    // === Page Highlight Mode ===
+    public enum HighlightPages {
+        ALWAYS,
+        WITH_SPELL
+    }
+    public HighlightPages highlightPages = HighlightPages.ALWAYS;
+
+    // === Color: Empty Sectors ===
+    public boolean usePigmentForEmptySector = true;
+    public int emptySectorColorR = 200;
+    public int emptySectorColorG = 200;
+    public int emptySectorColorB = 200;
+
+    // =============== GETTERS ===============
     public int getInnerRingInnerRadius() { return innerRingInnerRadius; }
     public int getInnerRingOuterRadius() { return innerRingOuterRadius; }
     public int getOuterRingInnerRadius() { return outerRingInnerRadius; }
@@ -94,8 +107,13 @@ public class HexSBMConfig {
     public int getColorMode() { return colorMode; }
     public int getMenuOpenMode() { return menuOpenMode; }
     public boolean isDisableGradient() { return disableGradient; }
+    public HighlightPages getHighlightPages() { return highlightPages; }
+    public boolean isUsePigmentForEmptySector() { return usePigmentForEmptySector; }
+    public int getEmptySectorColorR() { return emptySectorColorR; }
+    public int getEmptySectorColorG() { return emptySectorColorG; }
+    public int getEmptySectorColorB() { return emptySectorColorB; }
 
-    // =============== СЕТТЕРЫ ===============
+    // =============== SETTERS ===============
     public void setInnerRingInnerRadius(int v) { v = clampRadius(v); this.innerRingInnerRadius = v; if (this.innerRingOuterRadius < v) this.innerRingOuterRadius = v; }
     public void setInnerRingOuterRadius(int v) { v = clampRadius(v); this.innerRingOuterRadius = v; if (this.innerRingInnerRadius > v) this.innerRingInnerRadius = v; }
     public void setOuterRingInnerRadius(int v) { v = clampRadius(v); this.outerRingInnerRadius = v; if (this.outerRingOuterRadius < v) this.outerRingOuterRadius = v; }
@@ -108,6 +126,11 @@ public class HexSBMConfig {
     public void setColorMode(int v) { this.colorMode = MathHelper.clamp(v, COLOR_MODE_BY_SPELL, COLOR_MODE_NEVER); }
     public void setMenuOpenMode(int v) { this.menuOpenMode = MathHelper.clamp(v, MENU_OPEN_MODE_HOLD, MENU_OPEN_MODE_CLICK); }
     public void setDisableGradient(boolean v) { this.disableGradient = v; }
+    public void setHighlightPages(HighlightPages v) { if (v != null) this.highlightPages = v; }
+    public void setUsePigmentForEmptySector(boolean v) { this.usePigmentForEmptySector = v; }
+    public void setEmptySectorColorR(int v) { this.emptySectorColorR = MathHelper.clamp(v, 0, 255); }
+    public void setEmptySectorColorG(int v) { this.emptySectorColorG = MathHelper.clamp(v, 0, 255); }
+    public void setEmptySectorColorB(int v) { this.emptySectorColorB = MathHelper.clamp(v, 0, 255); }
 
     private int clampRadius(int value) {
         return MathHelper.clamp(value, 0, MAX_RADIUS);
@@ -119,14 +142,12 @@ public class HexSBMConfig {
         this.outerRingInnerRadius = MathHelper.clamp(this.outerRingInnerRadius, 0, MAX_RADIUS);
         this.outerRingOuterRadius = MathHelper.clamp(this.outerRingOuterRadius, 0, MAX_RADIUS);
 
-        // Внутри каждого кольца: внутренний радиус не больше внешнего
         if (this.innerRingInnerRadius > this.innerRingOuterRadius) {
             this.innerRingOuterRadius = this.innerRingInnerRadius;
         }
         if (this.outerRingInnerRadius > this.outerRingOuterRadius) {
             this.outerRingOuterRadius = this.outerRingInnerRadius;
         }
-        // ← Между кольцами НЕТ связи. Совсем.
     }
 
     public HexSBMConfig() {}
@@ -162,6 +183,11 @@ public class HexSBMConfig {
         this.colorMode = other.colorMode;
         this.disableGradient = other.disableGradient;
         this.menuOpenMode = other.menuOpenMode;
+        this.highlightPages = other.highlightPages;
+        this.usePigmentForEmptySector = other.usePigmentForEmptySector;
+        this.emptySectorColorR = other.emptySectorColorR;
+        this.emptySectorColorG = other.emptySectorColorG;
+        this.emptySectorColorB = other.emptySectorColorB;
     }
 
     public void resetToDefault() {

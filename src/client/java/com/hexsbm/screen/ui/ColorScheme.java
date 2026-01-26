@@ -9,57 +9,70 @@ public class ColorScheme {
 
     private final int pigmentColor;
     private final HexSBMConfig config;
+    private final HexSBMConfig.HighlightPages highlightMode;
 
-    public ColorScheme(int pigmentColor, HexSBMConfig config) {
+    public ColorScheme(int pigmentColor, HexSBMConfig config, HexSBMConfig.HighlightPages highlightMode) {
         this.pigmentColor = pigmentColor;
         this.config = config;
+        this.highlightMode = highlightMode;
     }
 
-    public int getOuterInnerColor(boolean cur, boolean hover) {
+    public int getOuterInnerColor(boolean cur, boolean hover, boolean hasSpell) {
         int alpha = cur ? config.activeAlpha : hover ? config.hoverAlpha : config.inactiveAlpha;
-        int rgb = getRgbForState(cur, hover, false, false);
+        int rgb = getRgbForState(cur, hover, false, false, hasSpell);
         return mkColor(alpha, rgb);
     }
 
-    public int getOuterOuterColor(boolean cur, boolean hover) {
+    public int getOuterOuterColor(boolean cur, boolean hover, boolean hasSpell) {
         int alpha = cur ? config.activeAlpha : hover ? config.hoverAlpha : config.inactiveAlpha;
-        int rgb = getRgbForState(cur, hover, false, true);
+        int rgb = getRgbForState(cur, hover, false, true, hasSpell);
         return mkColor(alpha, rgb);
     }
 
-    public int getInnerInnerColor(boolean cur, boolean hover) {
+    public int getInnerInnerColor(boolean cur, boolean hover, boolean hasSpell) {
         int alpha = cur ? config.activeAlpha : hover ? config.hoverAlpha : config.inactiveAlpha;
-        int rgb = getRgbForState(cur, hover, true, false);
+        int rgb = getRgbForState(cur, hover, true, false, hasSpell);
         return mkColor(alpha, rgb);
     }
 
-    public int getInnerOuterColor(boolean cur, boolean hover) {
+    public int getInnerOuterColor(boolean cur, boolean hover, boolean hasSpell) {
         int alpha = cur ? config.activeAlpha : hover ? config.hoverAlpha : config.inactiveAlpha;
-        int rgb = getRgbForState(cur, hover, true, true);
+        int rgb = getRgbForState(cur, hover, true, true, hasSpell);
         return mkColor(alpha, rgb);
     }
 
-    private int getRgbForState(boolean cur, boolean hover, boolean isInner, boolean isOuterEdge) {
-        if (config.disableGradient) {
-            // Единый цвет — используем outer как базовый
-            if (cur) {
-                return lighten(pigmentColor, config.outerActiveLighten);
-            } else if (hover) {
-                return lighten(pigmentColor, config.outerHoverLighten);
+    private int getRgbForState(boolean cur, boolean hover, boolean isInner, boolean isOuterEdge, boolean hasSpell) {
+        int effectiveBaseColor;
+
+        if (highlightMode == HexSBMConfig.HighlightPages.WITH_SPELL && !hasSpell) {
+            if (config.isUsePigmentForEmptySector()) {
+                effectiveBaseColor = lighten(this.pigmentColor, 0.2f);
             } else {
-                return lighten(pigmentColor, config.outerInactiveLighten);
+                effectiveBaseColor = (config.getEmptySectorColorR() << 16) | (config.getEmptySectorColorG() << 8) | config.getEmptySectorColorB();
+            }
+        } else {
+            effectiveBaseColor = this.pigmentColor;
+        }
+
+        if (config.disableGradient) {
+            if (cur) {
+                return lighten(effectiveBaseColor, config.outerActiveLighten);
+            } else if (hover) {
+                return lighten(effectiveBaseColor, config.outerHoverLighten);
+            } else {
+                return lighten(effectiveBaseColor, config.outerInactiveLighten);
             }
         } else {
             if (cur) {
-                return lighten(pigmentColor, isInner ? config.innerActiveLighten : config.outerActiveLighten);
+                return lighten(effectiveBaseColor, isInner ? config.innerActiveLighten : config.outerActiveLighten);
             } else if (hover) {
-                return lighten(pigmentColor, isInner ? config.innerHoverLighten : config.outerHoverLighten);
+                return lighten(effectiveBaseColor, isInner ? config.innerHoverLighten : config.outerHoverLighten);
             } else {
-                // Для неактивного: innerInner/outerOuter → lighten, innerOuter/outerInner → darken
                 if ((isInner && !isOuterEdge) || (!isInner && isOuterEdge)) {
-                    return lighten(pigmentColor, isInner ? config.innerInactiveLighten : config.outerInactiveLighten);
-                } else {
-                    return darken(pigmentColor, isInner ? config.innerInactiveDarken : config.outerInactiveDarken);
+                    return lighten(effectiveBaseColor, isInner ? config.innerInactiveLighten : config.outerInactiveLighten);
+                }
+                else {
+                    return darken(effectiveBaseColor, isInner ? config.innerInactiveDarken : config.outerInactiveDarken);
                 }
             }
         }
